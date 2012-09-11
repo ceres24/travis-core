@@ -20,18 +20,74 @@ describe Artifact::Log do
         job.reload.log.content.should == lines.join
       end
 
-      it 'filters out null chars' do
-        Artifact::Log.expects(:update_all).with do |updates, *args|
-          updates.last.should == 'abc'
+        it 'filters out null chars' do
+          Artifact::Log.expects(:update_all).with do |updates, *args|
+            updates.last.should == 'abc'
+          end
+          Artifact::Log.append(job.id, "a\0b\0c")
         end
-        Artifact::Log.append(job.id, "a\0b\0c")
+
+        it 'filters out triple null chars' do
+          Artifact::Log.expects(:update_all).with do |updates, *args|
+            updates.last.should == 'abc'
+          end
+          Artifact::Log.append(job.id, "a\000b\000c")
+        end
+      end
+    end
+
+    describe 'given a sequence number and :log_aggregation being activated' do
+      before :each do
+        Travis::Features.enable_for_all(:log_aggregation)
       end
 
-      it 'filters out triple null chars' do
-        Artifact::Log.expects(:update_all).with do |updates, *args|
-          updates.last.should == 'abc'
+      describe 'append' do
+        it 'creates a log part with the given sequence' do
+          Artifact::Log.append(log.id, lines.first, 1)
+          log.parts.first.content.should == lines.first
         end
-        Artifact::Log.append(job.id, "a\000b\000c")
+
+        it 'filters out null chars' do
+          Artifact::Log.append(log.id, "a\0b\0c", 1)
+          log.parts.first.content.should == 'abc'
+        end
+
+        it 'filters out triple null chars' do
+          Artifact::Log.append(log.id, "a\000b\000c", 1)
+          log.parts.first.content.should == 'abc'
+        end
+      end
+
+      describe 'content' do
+        it 'while not aggregated it returns the aggregated parts' do
+          lines.each_with_index { |line, ix| Artifact::Log.append(log.id, line, ix) }
+          log.content.should == lines.join
+        end
+
+        it 'if aggregated returns the aggregated parts' do
+          log.update_attributes!(:content => 'content', :aggregated_at => Time.now)
+          log.content.should == 'content'
+        end
+      end
+
+      describe 'aggregate' do
+        before :each do
+          lines.each_with_index { |line, ix| Artifact::Log.append(log.id, line, ix) }
+          Artifact::Log.aggregate(log.id)
+          log.reload
+        end
+
+        it 'aggregates the content parts' do
+          log.content.should == lines.join
+        end
+
+        it 'sets aggregated_at' do
+          log.aggregated_at.should == Time.now
+        end
+
+        it 'deletes the content parts from the parts table' do
+          Artifact::Part.all.should be_empty
+        end
       end
     end
   end

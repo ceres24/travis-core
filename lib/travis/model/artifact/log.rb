@@ -1,10 +1,30 @@
+require 'metriks'
+
 class Artifact::Log < Artifact
   class << self
-    # use job_id to avoid loading a log artifact into memory
-    def append(id, chars)
+    AGGREGATE_SQL = %(
+      UPDATE artifacts
+         SET aggregated_at = ?, content = (
+               SELECT array_to_string(array_agg(artifact_parts.content), '')
+               FROM artifact_parts
+               WHERE artifacts.id = ?
+             )
+       WHERE artifacts.id = ?
+    )
+
+    def append(id, chars, sequence = nil)
       meter do
-        update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
+        if sequence && Travis::Features.feature_active?(:log_aggregation)
+          Artifact::Part.create!(:artifact_id => id, :content => filter(chars), :sequence => sequence)
+        else
+          update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
+        end
       end
+    end
+
+    def aggregate(id)
+      connection.execute(sanitize_sql([AGGREGATE_SQL, Time.now, id, id]))
+      Artifact::Part.delete_all(:artifact_id => id)
     end
 
     private
@@ -21,8 +41,21 @@ class Artifact::Log < Artifact
       end
   end
 
-  # def append_message(severity, message)
-  #   self.class.append(id, "\\n\\n#{colorize(severity == :warn ? :yellow : :green, message)}")
-  # end
-end
+  has_many :parts, :class_name => 'Artifact::Part', :foreign_key => :artifact_id
 
+  def content
+    if Travis::Features.feature_active?(:log_aggregation)
+      aggregated? ? read_attribute(:content) : aggregated_content
+    else
+      read_attribute(:content)
+    end
+  end
+
+  def aggregated?
+    !!aggregated_at
+  end
+
+  def aggregated_content
+    parts.order(:id).select(:content).map(&:content).join || ''
+  end
+end
