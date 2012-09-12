@@ -1,21 +1,21 @@
 require 'metriks'
 
 class Artifact::Log < Artifact
-  class << self
-    AGGREGATE_SQL = %(
-      UPDATE artifacts
-         SET aggregated_at = ?, content = (
-               SELECT array_to_string(array_agg(artifact_parts.content), '')
-               FROM artifact_parts
-               WHERE artifacts.id = ?
-             )
-       WHERE artifacts.id = ?
-    )
+  AGGREGATE_SELECT_SQL = %(
+    SELECT array_to_string(array_agg(artifact_parts.content ORDER BY number), '')
+    FROM artifact_parts
+    WHERE artifact_id = ?
+  )
 
-    def append(id, chars, sequence = nil)
+  AGGREGATE_UPDATE_SQL = %(
+    UPDATE artifacts SET aggregated_at = ?, content = (#{AGGREGATE_SELECT_SQL}) WHERE artifacts.id = ?
+  )
+
+  class << self
+    def append(id, chars, number = nil)
       meter do
-        if sequence && Travis::Features.feature_active?(:log_aggregation)
-          Artifact::Part.create!(:artifact_id => id, :content => filter(chars), :sequence => sequence)
+        if number && Travis::Features.feature_active?(:log_aggregation)
+          Artifact::Part.create!(:artifact_id => id, :content => filter(chars), :number => number)
         else
           update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
         end
@@ -23,7 +23,7 @@ class Artifact::Log < Artifact
     end
 
     def aggregate(id)
-      connection.execute(sanitize_sql([AGGREGATE_SQL, Time.now, id, id]))
+      connection.execute(sanitize_sql([AGGREGATE_UPDATE_SQL, Time.now, id, id]))
       Artifact::Part.delete_all(:artifact_id => id)
     end
 
@@ -56,6 +56,6 @@ class Artifact::Log < Artifact
   end
 
   def aggregated_content
-    parts.order(:id).select(:content).map(&:content).join || ''
+    self.class.connection.select_value(self.class.send(:sanitize_sql, [AGGREGATE_SELECT_SQL, id]))
   end
 end

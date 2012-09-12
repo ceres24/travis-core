@@ -11,16 +11,16 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120911160000) do
+ActiveRecord::Schema.define(:version => 20120911230001) do
 
   create_table "artifact_parts", :force => true do |t|
-    t.integer "job_id"
     t.integer "artifact_id"
     t.string  "content"
-    t.integer "sequence"
+    t.integer "number"
   end
 
-  add_index "artifact_parts", ["sequence"], :name => "index_artifact_parts_on_sequence"
+  add_index "artifact_parts", ["artifact_id", "number"], :name => "index_artifact_parts_on_artifact_id_and_number"
+
   create_table "artifacts", :force => true do |t|
     t.text     "content"
     t.integer  "job_id"
@@ -68,6 +68,7 @@ ActiveRecord::Schema.define(:version => 20120911160000) do
   add_index "builds", ["finished_at"], :name => "index_builds_on_finished_at"
   add_index "builds", ["repository_id", "event_type"], :name => "index_builds_on_repository_id_and_event_type"
   add_index "builds", ["repository_id", "state"], :name => "index_builds_on_repository_id_and_state"
+  add_index "builds", ["state"], :name => "index_builds_on_state"
 
   create_table "commits", :force => true do |t|
     t.integer  "repository_id"
