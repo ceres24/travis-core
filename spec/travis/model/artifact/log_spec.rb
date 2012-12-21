@@ -4,6 +4,7 @@ describe Artifact::Log do
   include Support::ActiveRecord
 
   describe 'class methods' do
+    let(:log)   { job.log }
     let(:job)   { Factory.create(:test, :log => Factory.create(:log, :content => '')) }
     let(:lines) { ["line 1\n", "line 2\n", 'line 3'] }
 

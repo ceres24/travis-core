@@ -63,7 +63,7 @@ describe Job do
       ]
     end
 
-    it 'should tag a job its log contains a particular string' do
+    xit 'should tag a job its log contains a particular string' do
       job.log.update_attributes!(content: 'rake is not part of the bundle')
       job.finish!
       job.reload.tags.should == "rake_not_bundled"
