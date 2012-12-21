@@ -81,20 +81,59 @@ describe Artifact::Log do
         before :each do
           lines.each_with_index { |line, ix| Artifact::Log.append(log.id, line, ix) }
           Artifact::Log.append(log.id + 1, 'foo', 1)
+        end
+
+        def aggregate!
           Artifact::Log.aggregate(log.id)
           log.reload
+        rescue ActiveRecord::ActiveRecordError
         end
 
         it 'aggregates the content parts' do
+          aggregate!
           log.content.should == lines.join
         end
 
         it 'sets aggregated_at' do
+          aggregate!
           log.aggregated_at.should == Time.now
         end
 
         it 'deletes the content parts from the parts table' do
+          aggregate!
           log.parts.should be_empty
+        end
+
+        shared_examples_for :rolled_back_log_aggregation do
+          it 'does not set aggregated_at' do
+            aggregate!
+            log.aggregated_at.should be_nil
+          end
+
+          it 'does not set the content' do
+            aggregate!
+            log.read_attribute(:content).should be_nil
+          end
+
+          it 'does not delete parts' do
+            -> { aggregate! }.should_not change(Artifact::Part, :count)
+          end
+        end
+
+        describe 'rolls back if log aggregation fails' do
+          before :each do
+            Artifact::Part.stubs(:aggregate).raises(ActiveRecord::ActiveRecordError)
+          end
+
+          it_behaves_like :rolled_back_log_aggregation
+        end
+
+        describe 'rolls back if parts deletion fails' do
+          before :each do
+            Artifact::Part.stubs(:delete_all).raises(ActiveRecord::ActiveRecordError)
+          end
+
+          it_behaves_like :rolled_back_log_aggregation
         end
       end
     end

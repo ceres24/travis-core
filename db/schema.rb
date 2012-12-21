@@ -11,7 +11,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120911230001) do
+ActiveRecord::Schema.define(:version => 20121125122701) do
 
   create_table "artifact_parts", :force => true do |t|
     t.integer "artifact_id"

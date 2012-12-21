@@ -1,21 +1,11 @@
 require 'metriks'
 
 class Artifact::Log < Artifact
-  AGGREGATE_SELECT_SQL = %(
-    SELECT array_to_string(array_agg(artifact_parts.content ORDER BY number), '')
-    FROM artifact_parts
-    WHERE artifact_id = ?
-  )
-
-  AGGREGATE_UPDATE_SQL = %(
-    UPDATE artifacts SET aggregated_at = ?, content = (#{AGGREGATE_SELECT_SQL}) WHERE artifacts.id = ?
-  )
-
   class << self
     def append(id, chars, number = nil)
       meter do
         if number && Travis::Features.feature_active?(:log_aggregation)
-          Artifact::Part.create!(:artifact_id => id, :content => filter(chars), :number => number)
+          Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number)
         else
           update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
         end
@@ -23,8 +13,10 @@ class Artifact::Log < Artifact
     end
 
     def aggregate(id)
-      connection.execute(sanitize_sql([AGGREGATE_UPDATE_SQL, Time.now, id, id]))
-      Artifact::Part.delete_all(:artifact_id => id)
+      ActiveRecord::Base.transaction do
+        Artifact::Part.aggregate(id)
+        Artifact::Part.delete_all(artifact_id: id)
+      end
     end
 
     private
@@ -56,6 +48,6 @@ class Artifact::Log < Artifact
   end
 
   def aggregated_content
-    self.class.connection.select_value(self.class.send(:sanitize_sql, [AGGREGATE_SELECT_SQL, id]))
+    self.class.connection.select_value(self.class.send(:sanitize_sql, [Part::AGGREGATE_SELECT_SQL, id]))
   end
 end
