@@ -7,7 +7,7 @@ class Artifact::Log < Artifact
   class << self
     def append(id, chars, number = nil, final = false)
       meter do
-        if number && Travis::Features.feature_active?(:log_aggregation)
+        if Travis::Features.feature_active?(:log_aggregation)
           Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number, final: final || final?(chars))
         else
           update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])

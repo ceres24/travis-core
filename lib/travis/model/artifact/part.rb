@@ -1,6 +1,7 @@
 class Artifact::Part < ActiveRecord::Base
+  # TODO stop ordering by id once workers pass the part number
   AGGREGATE_SELECT_SQL = %(
-    SELECT array_to_string(array_agg(artifact_parts.content ORDER BY number), '')
+    SELECT array_to_string(array_agg(artifact_parts.content ORDER BY number, id), '')
       FROM artifact_parts
      WHERE artifact_id = ?
   )
