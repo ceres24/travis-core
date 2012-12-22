@@ -106,7 +106,7 @@ describe Artifact::Log do
 
         it 'sets aggregated_at' do
           aggregate!
-          log.aggregated_at.should == Time.now
+          log.aggregated_at.to_s.should == Time.now.to_s
         end
 
         it 'deletes the content parts from the parts table' do
