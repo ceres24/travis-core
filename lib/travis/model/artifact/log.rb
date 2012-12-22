@@ -1,13 +1,14 @@
 require 'metriks'
 
 class Artifact::Log < Artifact
+  # TODO remove this once we know aggregation works fine and the worker passes a :final flag
   FINAL = 'Done. Build script exited with:'
 
   class << self
-    def append(id, chars, number = nil)
+    def append(id, chars, number = nil, final = false)
       meter do
         if number && Travis::Features.feature_active?(:log_aggregation)
-          Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number, final: final?(chars))
+          Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number, final: final || final?(chars))
         else
           update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
         end

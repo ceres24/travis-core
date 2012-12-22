@@ -17,7 +17,7 @@ ActiveRecord::Schema.define(:version => 20121222125200) do
     t.integer  "artifact_id"
     t.string   "content"
     t.integer  "number"
-    t.datetime "final"
+    t.boolean  "final"
     t.datetime "created_at"
   end
 
