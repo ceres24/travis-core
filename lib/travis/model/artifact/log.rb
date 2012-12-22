@@ -1,11 +1,13 @@
 require 'metriks'
 
 class Artifact::Log < Artifact
+  FINAL = 'Done. Build script exited with:'
+
   class << self
     def append(id, chars, number = nil)
       meter do
         if number && Travis::Features.feature_active?(:log_aggregation)
-          Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number)
+          Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number, final: final?(chars))
         else
           update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
         end
@@ -24,6 +26,10 @@ class Artifact::Log < Artifact
       def filter(chars)
         # postgres seems to have issues with null chars
         chars.gsub("\0", '')
+      end
+
+      def final?(chars)
+        chars.include?(FINAL)
       end
 
       # TODO should be done by Travis::LogSubscriber::ActiveRecordMetrics but i can't get it

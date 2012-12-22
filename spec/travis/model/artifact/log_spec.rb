@@ -63,6 +63,16 @@ describe Artifact::Log do
           Artifact::Log.append(log.id, "a\000b\000c", 1)
           log.parts.first.content.should == 'abc'
         end
+
+        it 'does not set the :final flag if the appended message does not contain the final log message part' do
+          Artifact::Log.append(log.id, lines.first, 1)
+          log.parts.first.final.should be_false
+        end
+
+        it 'sets the :final flag if the appended message contains the final log message part' do
+          Artifact::Log.append(log.id, "some log.\n#{Artifact::Log::FINAL} result", 1)
+          log.parts.first.final.should be_true
+        end
       end
 
       describe 'content' do

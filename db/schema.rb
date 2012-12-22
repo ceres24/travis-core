@@ -11,12 +11,13 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20121125122701) do
+ActiveRecord::Schema.define(:version => 20121222125200) do
 
   create_table "artifact_parts", :force => true do |t|
     t.integer "artifact_id"
     t.string  "content"
     t.integer "number"
+    t.boolean "final",       :default => false
   end
 
   add_index "artifact_parts", ["artifact_id", "number"], :name => "index_artifact_parts_on_artifact_id_and_number"
