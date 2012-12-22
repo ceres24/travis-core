@@ -4,7 +4,7 @@ describe Artifact::Log do
   include Support::ActiveRecord
 
   describe 'class methods' do
-    let(:log)   { job.log }
+    let!(:log)  { job.log }
     let(:job)   { Factory.create(:test, :log => Factory.create(:log, :content => '')) }
     let(:lines) { ["line 1\n", "line 2\n", 'line 3'] }
 
@@ -50,34 +50,34 @@ describe Artifact::Log do
 
       describe 'append' do
         it 'creates a log part with the given number' do
-          Artifact::Log.append(log.id, lines.first, 1)
+          Artifact::Log.append(job.id, lines.first, 1)
           log.parts.first.content.should == lines.first
         end
 
         it 'filters out null chars' do
-          Artifact::Log.append(log.id, "a\0b\0c", 1)
+          Artifact::Log.append(job.id, "a\0b\0c", 1)
           log.parts.first.content.should == 'abc'
         end
 
         it 'filters out triple null chars' do
-          Artifact::Log.append(log.id, "a\000b\000c", 1)
+          Artifact::Log.append(job.id, "a\000b\000c", 1)
           log.parts.first.content.should == 'abc'
         end
 
         it 'does not set the :final flag if the appended message does not contain the final log message part' do
-          Artifact::Log.append(log.id, lines.first, 1)
+          Artifact::Log.append(job.id, lines.first, 1)
           log.parts.first.final.should be_false
         end
 
         it 'sets the :final flag if the appended message contains the final log message part' do
-          Artifact::Log.append(log.id, "some log.\n#{Artifact::Log::FINAL} result", 1)
+          Artifact::Log.append(job.id, "some log.\n#{Artifact::Log::FINAL} result", 1)
           log.parts.first.final.should be_true
         end
       end
 
       describe 'content' do
         it 'while not aggregated it returns the aggregated parts' do
-          lines.each_with_index { |line, ix| Artifact::Log.append(log.id, line, ix) }
+          lines.each_with_index { |line, ix| Artifact::Log.append(job.id, line, ix) }
           log.content.should == lines.join
         end
 
@@ -89,14 +89,14 @@ describe Artifact::Log do
 
       describe 'aggregate' do
         before :each do
-          lines.each_with_index { |line, ix| Artifact::Log.append(log.id, line, ix) }
-          Artifact::Log.append(log.id + 1, 'foo', 1)
+          lines.each_with_index { |line, ix| Artifact::Log.append(job.id, line, ix) }
+          # Artifact::Log.append(job.id + 1, 'foo', 1)
         end
 
         def aggregate!
           Artifact::Log.aggregate(log.id)
           log.reload
-        rescue ActiveRecord::ActiveRecordError
+        rescue ActiveRecord::ActiveRecordError => e
         end
 
         it 'aggregates the content parts' do

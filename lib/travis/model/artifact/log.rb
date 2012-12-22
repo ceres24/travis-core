@@ -5,12 +5,13 @@ class Artifact::Log < Artifact
   FINAL = 'Done. Build script exited with:'
 
   class << self
-    def append(id, chars, number = nil, final = false)
+    def append(job_id, chars, number = nil, final = false)
       meter do
         if Travis::Features.feature_active?(:log_aggregation)
+          id = Artifact::Log.where(job_id: job_id).select(:id).first.id
           Artifact::Part.create!(artifact_id: id, content: filter(chars), number: number, final: final || final?(chars))
         else
-          update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", id])
+          update_all(["content = COALESCE(content, '') || ?", filter(chars)], ["job_id = ?", job_id])
         end
       end
     end
