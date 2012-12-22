@@ -4,23 +4,36 @@ module Travis
       class Aggregate < Travis::Services::Base
         register :logs_aggregate
 
+        QUERY = %(
+          SELECT DISTINCT artifact_id
+            FROM artifact_parts
+           WHERE created_at <= NOW() - interval '? seconds' AND final = ?
+              OR created_at <= NOW() - interval '? seconds'
+        )
+
         def run
-          Artifact::Log.append(job.id, chars)
-          job.notify(:log, _log: chars)
+          return unless active?
+          aggregateable_log_ids.each do |id|
+            Artifact::Log.aggregate(id)
+          end
         end
 
         private
 
-          def job
-            Job::Test.find(data[:id])
+          def active?
+            Travis::Features.feature_active?(:log_aggregation)
           end
 
-          def chars
-            data[:log]
+          def aggregateable_log_ids
+            Artifact::Part.connection.select_values(query).map(&:to_i)
           end
 
-          def data
-            @data ||= params[:data].symbolize_keys
+          def query
+            Artifact::Part.send(:sanitize_sql, [QUERY, intervals[:regular], true, intervals[:force]])
+          end
+
+          def intervals
+            Travis.config.logs.intervals
           end
       end
     end

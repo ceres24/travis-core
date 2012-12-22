@@ -1,8 +1,8 @@
 class Artifact::Part < ActiveRecord::Base
   AGGREGATE_SELECT_SQL = %(
     SELECT array_to_string(array_agg(artifact_parts.content ORDER BY number), '')
-    FROM artifact_parts
-    WHERE artifact_id = ?
+      FROM artifact_parts
+     WHERE artifact_id = ?
   )
 
   AGGREGATE_UPDATE_SQL = %(
